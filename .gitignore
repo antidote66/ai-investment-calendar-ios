@@ -1,0 +1,31 @@
+# Xcode
+DerivedData/
+build/
+build-device/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Swift / macOS
+.build/
+.swiftpm/
+.DS_Store
+
+# Local screenshots and temporary captures
+simulator-*.png
+
+# Signing and local secrets
+*.mobileprovision
+*.p12
+*.cer
+*.der
+*.key
+*.pem
+.env
+.env.*
+
+# App archives
+*.xcarchive
+*.ipa

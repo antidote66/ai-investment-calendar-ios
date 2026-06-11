@@ -22,6 +22,7 @@
 		C1047804C5B323F674C4DC42 /* InvestmentCalendarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B8B679A1D0EF8974C169CA /* InvestmentCalendarStore.swift */; };
 		C131EE85930207E664241ADF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FA29A3D136984ACF33EE67F0 /* Assets.xcassets */; };
 		C1472DC58CF7749871F9A5E0 /* WatchlistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5514D26E017DA7E7022292BC /* WatchlistView.swift */; };
+		C1A448F3100FC12E4B48EF58 /* MarginTradingProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B6B8432D8DCD366A7F948A /* MarginTradingProvider.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,7 @@
 		908A09F8175E5018C00C2E68 /* CalendarScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarScreen.swift; sourceTree = "<group>"; };
 		96BAA89C92C6FA9AC7DFA734 /* AIProviderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProviderSettingsView.swift; sourceTree = "<group>"; };
 		C831447A4626CC2EA3281E9D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D3B6B8432D8DCD366A7F948A /* MarginTradingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarginTradingProvider.swift; sourceTree = "<group>"; };
 		D4F40DBD1A340C6F6139D351 /* StockDataProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockDataProviders.swift; sourceTree = "<group>"; };
 		EDC6333B84D88DEC521FBB80 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FA29A3D136984ACF33EE67F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -52,6 +54,7 @@
 				325F80C67BCFDEB45E9061B8 /* AnnouncementProviders.swift */,
 				51B8B679A1D0EF8974C169CA /* InvestmentCalendarStore.swift */,
 				85143555B846EA042BCD811D /* MacroCalendarProvider.swift */,
+				D3B6B8432D8DCD366A7F948A /* MarginTradingProvider.swift */,
 				D4F40DBD1A340C6F6139D351 /* StockDataProviders.swift */,
 				3DFC7CD9BC27A1D0BE5CB54D /* WebClient.swift */,
 			);
@@ -192,6 +195,7 @@
 				111138170BDFC50210C7540B /* InvestmentCalendarApp.swift in Sources */,
 				C1047804C5B323F674C4DC42 /* InvestmentCalendarStore.swift in Sources */,
 				8B256DFD1D21C9E1DD641FCC /* MacroCalendarProvider.swift in Sources */,
+				C1A448F3100FC12E4B48EF58 /* MarginTradingProvider.swift in Sources */,
 				B141A90468A9B6D7BCFCD7A8 /* SourcesView.swift in Sources */,
 				6BC5CD3AA5A67A2F1A12C93D /* StockDataProviders.swift in Sources */,
 				3672C29DE8E384191E4F048D /* Theme.swift in Sources */,

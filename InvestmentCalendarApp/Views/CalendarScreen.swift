@@ -71,6 +71,7 @@ struct AIWorkspaceScreen: View {
                     AIProviderStatusCard {
                         showingAISettings = true
                     }
+                    MarginLeverageCard()
                     AIInsightCard()
                     ExposureCompassCard()
                 }
@@ -377,6 +378,129 @@ private struct AIProviderStatusCard: View {
     }
 }
 
+private struct MarginLeverageCard: View {
+    @EnvironmentObject private var store: InvestmentCalendarStore
+
+    var body: some View {
+        let rows = leverageRows()
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Label("融资融券温度", systemImage: "chart.line.uptrend.xyaxis")
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.ink)
+                    Text("按融资余额占流通市值、分位数和近10日融资净买入排序")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.mutedInk)
+                }
+                Spacer()
+                if store.isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Text("\(rows.count) 只")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.mutedInk)
+                }
+            }
+
+            if rows.isEmpty {
+                Text(store.isRefreshing ? "正在抓取 A 股两融数据" : "暂无 A 股两融数据；刷新后会从东方财富免费源获取。")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.mutedInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(11)
+                    .background(AppTheme.paper.opacity(0.72), in: RoundedRectangle(cornerRadius: 8))
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(rows) { snapshot in
+                        MarginLeverageRow(snapshot: snapshot)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.line.opacity(0.65), lineWidth: 1))
+    }
+
+    private func leverageRows() -> [MarginSnapshot] {
+        Array(store.marginSnapshots.values.sorted { lhs, rhs in
+            if lhs.temperatureScore == rhs.temperatureScore {
+                return lhs.financingNetBuy10D > rhs.financingNetBuy10D
+            }
+            return lhs.temperatureScore > rhs.temperatureScore
+        }.prefix(3))
+    }
+}
+
+private struct MarginLeverageRow: View {
+    var snapshot: MarginSnapshot
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(snapshot.name)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(AppTheme.ink)
+                Text(snapshot.dateText)
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.mutedInk)
+            }
+            .frame(width: 74, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("融资余额 \(money(snapshot.financingBalance))")
+                    Text("占流通 \(percent(snapshot.financingBalanceRatio))")
+                }
+                .font(.caption.weight(.medium))
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+
+                Text("10日净买 \(signedMoney(snapshot.financingNetBuy10D)) · 温度 \(String(format: "%.0f", snapshot.temperatureScore))")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.mutedInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+
+            Spacer(minLength: 8)
+
+            Text(snapshot.temperature.title)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(snapshot.temperature.tint)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(snapshot.temperature.tint.opacity(0.12), in: Capsule())
+        }
+        .padding(10)
+        .background(AppTheme.paper.opacity(0.72), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func money(_ value: Double) -> String {
+        let absolute = abs(value)
+        if absolute >= 100_000_000 {
+            return "\(String(format: "%.2f", absolute / 100_000_000))亿"
+        }
+        if absolute >= 10_000 {
+            return "\(String(format: "%.0f", absolute / 10_000))万"
+        }
+        return "\(String(format: "%.0f", absolute))"
+    }
+
+    private func signedMoney(_ value: Double) -> String {
+        let prefix = value > 0 ? "+" : value < 0 ? "-" : ""
+        return prefix + money(value)
+    }
+
+    private func percent(_ value: Double?) -> String {
+        guard let value else { return "缺失" }
+        return "\(String(format: "%.2f", value))%"
+    }
+}
+
 private struct AIInsightCard: View {
     @EnvironmentObject private var store: InvestmentCalendarStore
 
@@ -679,7 +803,7 @@ private struct MiniStockCard: View {
 
 private struct SourceFootnote: View {
     var body: some View {
-        Text("数据来源：Fed、U.S. BLS、国家统计局、东方财富公告/预约披露、HKEXnews。启动和手动刷新时更新；网页结构变化时需要维护。")
+        Text("数据来源：Fed、U.S. BLS、国家统计局、东方财富公告/预约披露/融资融券、HKEXnews。启动和手动刷新时更新；网页结构变化时需要维护。")
             .font(.caption)
             .foregroundStyle(AppTheme.mutedInk)
             .lineSpacing(3)

@@ -5,6 +5,7 @@ import Foundation
 final class InvestmentCalendarStore: ObservableObject {
     @Published var events: [CalendarEvent] = MacroCalendarProvider.seedEvents()
     @Published var watchlist: [WatchStock] = []
+    @Published var marginSnapshots: [String: MarginSnapshot] = [:]
     @Published var selectedDate: Date = Date()
     @Published var visibleMonth: Date = Date()
     @Published var isRefreshing = false
@@ -21,7 +22,7 @@ final class InvestmentCalendarStore: ObservableObject {
     init() {
         loadWatchlist()
         loadAIProvider()
-        aiInsight = AIAnalysisProvider.localInsight(events: events, watchlist: watchlist)
+        aiInsight = AIAnalysisProvider.localInsight(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
     }
 
     func refresh() async {
@@ -31,26 +32,34 @@ final class InvestmentCalendarStore: ObservableObject {
         let macroSeeds = MacroCalendarProvider.seedEvents()
         async let onlineMacro = MacroCalendarProvider.fetchOnlineEvents()
         async let announcements = AnnouncementProvider.fetch(for: watchlist)
+        async let margin = MarginTradingProvider.fetch(for: watchlist)
 
         let fetchedMacro = await onlineMacro
         let fetchedAnnouncements = await announcements
+        let fetchedMargin = await margin
         let all = macroSeeds + fetchedMacro + fetchedAnnouncements
         events = deduplicated(all).sorted {
             if $0.date == $1.date { return $0.importance > $1.importance }
             return $0.date < $1.date
         }
+        marginSnapshots = fetchedMargin
         lastUpdated = Date()
         isRefreshing = false
 
         let announcementCount = events.filter { $0.category == .announcement }.count
         let reportCount = events.filter { $0.category == .stockCalendar }.count
-        statusMessage = "已更新：\(announcementCount) 条公告，\(reportCount) 条财报披露日期。"
+        statusMessage = "已更新：\(announcementCount) 条公告，\(reportCount) 条财报披露日期，\(fetchedMargin.count) 只A股两融。"
         await refreshAIAnalysis()
     }
 
     func refreshAIAnalysis() async {
         isAnalyzingAI = true
-        let insight = await AIAnalysisProvider.analyze(events: events, watchlist: watchlist, provider: aiProviderKind)
+        let insight = await AIAnalysisProvider.analyze(
+            events: events,
+            watchlist: watchlist,
+            marginSnapshots: marginSnapshots,
+            provider: aiProviderKind
+        )
         aiInsight = insight
         aiStatusMessage = insight.sourceNote
         isAnalyzingAI = false
@@ -128,7 +137,7 @@ final class InvestmentCalendarStore: ObservableObject {
         guard !watchlist.contains(where: { $0.market == stock.market && $0.code == stock.code }) else { return }
         watchlist.append(stock)
         saveWatchlist()
-        aiInsight = AIAnalysisProvider.localInsight(events: events, watchlist: watchlist)
+        aiInsight = AIAnalysisProvider.localInsight(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
     }
 
     func resolveAStock(keyword: String) async -> WatchStock? {
@@ -140,7 +149,7 @@ final class InvestmentCalendarStore: ObservableObject {
             watchlist.remove(at: index)
         }
         saveWatchlist()
-        aiInsight = AIAnalysisProvider.localInsight(events: events, watchlist: watchlist)
+        aiInsight = AIAnalysisProvider.localInsight(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
     }
 
     func setAIProvider(_ provider: AIProviderKind) async {

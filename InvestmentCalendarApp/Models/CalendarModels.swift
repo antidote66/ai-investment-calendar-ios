@@ -126,6 +126,65 @@ struct WatchStock: Identifiable, Codable, Hashable {
     ]
 }
 
+enum MarginTemperature: String, Codable {
+    case cool
+    case warming
+    case crowded
+    case unavailable
+
+    var title: String {
+        switch self {
+        case .cool: return "低温"
+        case .warming: return "升温"
+        case .crowded: return "拥挤"
+        case .unavailable: return "缺数据"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .cool: return AppTheme.matcha
+        case .warming: return AppTheme.amber
+        case .crowded: return AppTheme.vermilion
+        case .unavailable: return AppTheme.mutedInk
+        }
+    }
+}
+
+struct MarginSnapshot: Identifiable, Codable, Hashable {
+    var id: String { code }
+    var code: String
+    var name: String
+    var date: Date
+    var financingBalance: Double
+    var marginBalance: Double
+    var shortBalance: Double
+    var shortVolume: Double
+    var financingBuy: Double
+    var financingRepay: Double
+    var financingNetBuy: Double
+    var financingNetBuy5D: Double
+    var financingNetBuy10D: Double
+    var financingBalanceRatio: Double?
+    var financingBalanceRatioPercentile: Double?
+    var closingPrice: Double?
+    var priceChangePercent: Double?
+    var temperatureScore: Double
+    var sourceName: String
+    var sourceURL: URL?
+    var updatedAt: Date
+
+    var temperature: MarginTemperature {
+        if temperatureScore >= 68 { return .crowded }
+        if temperatureScore >= 42 { return .warming }
+        return .cool
+    }
+
+    var dateText: String {
+        DateKeys.day.string(from: date)
+    }
+}
+
 enum DateKeys {
     static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)

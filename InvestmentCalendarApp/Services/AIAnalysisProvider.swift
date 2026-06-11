@@ -138,22 +138,33 @@ enum AIProviderKeychain {
 }
 
 enum AIAnalysisProvider {
-    static func analyze(events: [CalendarEvent], watchlist: [WatchStock], provider: AIProviderKind) async -> AIInsight {
+    static func analyze(
+        events: [CalendarEvent],
+        watchlist: [WatchStock],
+        marginSnapshots: [String: MarginSnapshot] = [:],
+        provider: AIProviderKind
+    ) async -> AIInsight {
         if provider == .localRule {
-            return localInsight(events: events, watchlist: watchlist)
+            return localInsight(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
         }
 
         guard let apiKey = AIProviderKeychain.read(for: provider) else {
-            var fallback = localInsight(events: events, watchlist: watchlist)
+            var fallback = localInsight(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
             fallback.badge = "本地兜底"
             fallback.sourceNote = "AI 来源：未配置 \(provider.title) API Key，当前使用本地规则。"
             return fallback
         }
 
         do {
-            return try await remoteInsight(events: events, watchlist: watchlist, provider: provider, apiKey: apiKey)
+            return try await remoteInsight(
+                events: events,
+                watchlist: watchlist,
+                marginSnapshots: marginSnapshots,
+                provider: provider,
+                apiKey: apiKey
+            )
         } catch {
-            var fallback = localInsight(events: events, watchlist: watchlist)
+            var fallback = localInsight(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
             fallback.badge = "本地兜底"
             fallback.sourceNote = "AI 来源：\(provider.title) 暂不可用，已回落到本地规则。"
             fallback.risks = ["云端 AI 调用失败：\(error.localizedDescription)"] + fallback.risks
@@ -161,11 +172,16 @@ enum AIAnalysisProvider {
         }
     }
 
-    static func localInsight(events: [CalendarEvent], watchlist: [WatchStock]) -> AIInsight {
+    static func localInsight(
+        events: [CalendarEvent],
+        watchlist: [WatchStock],
+        marginSnapshots: [String: MarginSnapshot] = [:]
+    ) -> AIInsight {
         let focus = upcomingFocusEvents(events: events, limit: 6)
         let stockEvent = focus.first { $0.category == .announcement || $0.category == .stockCalendar }
         let fomc = focus.first { $0.category == .fomc }
         let firstFocus = focus.first
+        let hottestMargin = marginSnapshots.values.sorted { $0.temperatureScore > $1.temperatureScore }.first
         let latestReleasedCPI = events
             .filter { $0.category == .cpi && $0.date <= Date() && $0.detail.contains("已公布") }
             .sorted { $0.date > $1.date }
@@ -174,7 +190,11 @@ enum AIAnalysisProvider {
         let headline: String
         let regime: String
         let intensity: String
-        if let stockEvent {
+        if let hottestMargin, hottestMargin.temperature == .crowded {
+            headline = "\(hottestMargin.name) 两融杠杆温度已到拥挤区，先看融资净买入是否在事件日前继续推高。"
+            regime = "杠杆拥挤"
+            intensity = "高"
+        } else if let stockEvent {
             headline = "先处理真正改变预期的公告，再看宏观节点。重点是重大合同、定期报告、业绩、分红、重组和停复牌。"
             regime = "公告优先"
             intensity = stockEvent.importance == .high ? "高" : "中"
@@ -205,7 +225,9 @@ enum AIAnalysisProvider {
         let hasResources = !names.isDisjoint(with: Set(["紫金矿业", "洛阳钼业"]))
         let hasDuration = !names.isDisjoint(with: Set(["腾讯控股", "宁德时代"]))
         let holdingImpact: String
-        if hasResources && hasDuration {
+        if let hottestMargin, hottestMargin.temperature != .cool {
+            holdingImpact = "\(hottestMargin.name) 当前融资余额占流通市值约 \(formatPercent(hottestMargin.financingBalanceRatio))，近10日融资净买入 \(formatAmount(hottestMargin.financingNetBuy10D))；这是事件前后最需要盯的杠杆变量。"
+        } else if hasResources && hasDuration {
             holdingImpact = "资源股和久期资产看似分散，但都可能受实际利率节点影响；这是罗盘里的隐藏集中度逻辑。"
         } else if hasResources {
             holdingImpact = "资源股优先看铜、金、美元和实际利率，不只看公司公告本身。"
@@ -222,16 +244,22 @@ enum AIAnalysisProvider {
             intensity: intensity,
             nextNode: nextNode,
             holdingImpact: holdingImpact,
-            filterRule: "低相关宏观只保留日历圆点；与自选股、利率、通胀、业绩或重大合同相关的事项才进入主屏。",
-            mapSummary: mapSummary(for: watchlist),
-            risks: riskNotes(for: focus, watchlist: watchlist),
+            filterRule: "低相关宏观只保留日历圆点；与自选股、利率、通胀、业绩、重大合同或两融杠杆相关的事项才进入主屏。",
+            mapSummary: mapSummary(for: watchlist, marginSnapshots: marginSnapshots),
+            risks: riskNotes(for: focus, watchlist: watchlist, marginSnapshots: marginSnapshots),
             sourceNote: "AI 来源：本地规则；无需网络和 API Key。",
             updatedAt: Date()
         )
     }
 
-    private static func remoteInsight(events: [CalendarEvent], watchlist: [WatchStock], provider: AIProviderKind, apiKey: String) async throws -> AIInsight {
-        let prompt = prompt(events: events, watchlist: watchlist)
+    private static func remoteInsight(
+        events: [CalendarEvent],
+        watchlist: [WatchStock],
+        marginSnapshots: [String: MarginSnapshot],
+        provider: AIProviderKind,
+        apiKey: String
+    ) async throws -> AIInsight {
+        let prompt = prompt(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
         let text: String
         switch provider {
         case .gemini:
@@ -251,18 +279,26 @@ enum AIAnalysisProvider {
                 endpoint: URL(string: "https://api.moonshot.cn/v1/chat/completions")!
             )
         case .localRule:
-            return localInsight(events: events, watchlist: watchlist)
+            return localInsight(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
         }
 
-        return try decodeRemoteInsight(text, provider: provider, fallback: localInsight(events: events, watchlist: watchlist))
+        return try decodeRemoteInsight(
+            text,
+            provider: provider,
+            fallback: localInsight(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
+        )
     }
 
-    private static func prompt(events: [CalendarEvent], watchlist: [WatchStock]) -> String {
+    private static func prompt(events: [CalendarEvent], watchlist: [WatchStock], marginSnapshots: [String: MarginSnapshot]) -> String {
         let focus = upcomingFocusEvents(events: events, limit: 12)
         let eventLines = focus.map { event in
             "- \(DateKeys.day.string(from: event.date)) [\(event.category.title)/\(event.importance.label)] \(event.title)：\(event.detail)"
         }.joined(separator: "\n")
         let stockLines = watchlist.map { "- \($0.name) \($0.displayCode) \($0.market.rawValue)" }.joined(separator: "\n")
+        let marginLines = watchlist.compactMap { stock -> String? in
+            guard let snapshot = marginSnapshots[stock.code] else { return nil }
+            return "- \(stock.name) \(snapshot.dateText)：两融温度 \(snapshot.temperature.title)，融资余额 \(formatAmount(snapshot.financingBalance))，融资余额占流通市值 \(formatPercent(snapshot.financingBalanceRatio))，近10日融资净买入 \(formatAmount(snapshot.financingNetBuy10D))"
+        }.joined(separator: "\n")
 
         return """
         你是一个只服务个人投资日历的投研 AI。请根据已抓取事件做简洁研判，不要编造没有提供的数据或日期。
@@ -275,12 +311,16 @@ enum AIAnalysisProvider {
         重大事件：
         \(eventLines.isEmpty ? "- 未来三周暂无高优先级事项" : eventLines)
 
+        A股融资融券：
+        \(marginLines.isEmpty ? "- 暂无可用两融数据；港股不要套用A股两融口径。" : marginLines)
+
         规则：
         1. 重点看重大合同、中标订单、定期报告、业绩预告/快报、分红、重组、停复牌、CPI、FOMC 和高优先级宏观数据。
         2. 担保、关联交易、普通会议材料、月报表等低信号公告不要放大。
-        3. 输出必须是 JSON，不要 Markdown，不要解释。
-        4. 字段必须包含 headline, badge, regime, intensity, nextNode, holdingImpact, filterRule, mapSummary, risks。
-        5. risks 是 0 到 3 条中文字符串数组。
+        3. 融资融券是资金拥挤核心信号；事件日前融资净买入快速增加、融资余额占流通市值升高、股价滞涨但融资增加，都要提示。
+        4. 输出必须是 JSON，不要 Markdown，不要解释。
+        5. 字段必须包含 headline, badge, regime, intensity, nextNode, holdingImpact, filterRule, mapSummary, risks。
+        6. risks 是 0 到 3 条中文字符串数组。
         """
     }
 
@@ -402,7 +442,12 @@ enum AIAnalysisProvider {
         }
     }
 
-    private static func mapSummary(for watchlist: [WatchStock]) -> String {
+    private static func mapSummary(for watchlist: [WatchStock], marginSnapshots: [String: MarginSnapshot]) -> String {
+        if let hottest = marginSnapshots.values.sorted(by: { $0.temperatureScore > $1.temperatureScore }).first,
+           hottest.temperature != .cool {
+            return "\(hottest.name) 的两融温度最高，融资余额占流通市值约 \(formatPercent(hottest.financingBalanceRatio))，近10日融资净买入 \(formatAmount(hottest.financingNetBuy10D))；联动图谱会把它放在公告和宏观节点前一起看。"
+        }
+
         let names = Set(watchlist.map(\.name))
         if names.contains("紫金矿业") && names.contains("腾讯控股") {
             return "紫金矿业和腾讯控股表面行业不同，但都被实际利率和美元流动性影响；FOMC 前后要一起看。"
@@ -413,8 +458,12 @@ enum AIAnalysisProvider {
         return "联动图谱先把自选股映射到利率、商品价格、产业价格和公告触发，再逐步补实时因子。"
     }
 
-    private static func riskNotes(for focus: [CalendarEvent], watchlist: [WatchStock]) -> [String] {
+    private static func riskNotes(for focus: [CalendarEvent], watchlist: [WatchStock], marginSnapshots: [String: MarginSnapshot]) -> [String] {
         var notes: [String] = []
+        if let hottest = marginSnapshots.values.sorted(by: { $0.temperatureScore > $1.temperatureScore }).first,
+           hottest.temperature != .cool {
+            notes.append("\(hottest.name) 杠杆温度\(hottest.temperature.title)，近10日融资净买入 \(formatAmount(hottest.financingNetBuy10D))，事件日前后要防融资推动后的反向波动。")
+        }
         if focus.contains(where: { $0.category == .fomc || $0.category == .cpi }) {
             notes.append("宏观节点前后，先降低单日价格信号权重。")
         }
@@ -424,7 +473,24 @@ enum AIAnalysisProvider {
         if focus.contains(where: { $0.category == .announcement }) {
             notes.append("公告只进入主屏不代表买卖结论，需要回到合同质量和业绩弹性。")
         }
-        return notes
+        return Array(notes.prefix(3))
+    }
+
+    private static func formatAmount(_ value: Double) -> String {
+        let absolute = abs(value)
+        let sign = value < 0 ? "-" : ""
+        if absolute >= 100_000_000 {
+            return "\(sign)\(String(format: "%.2f", absolute / 100_000_000))亿"
+        }
+        if absolute >= 10_000 {
+            return "\(sign)\(String(format: "%.0f", absolute / 10_000))万"
+        }
+        return "\(sign)\(String(format: "%.0f", absolute))"
+    }
+
+    private static func formatPercent(_ value: Double?) -> String {
+        guard let value else { return "缺失" }
+        return "\(String(format: "%.2f", value))%"
     }
 
     private static func shortDate(_ date: Date) -> String {

@@ -109,8 +109,116 @@ private struct StockWatchRow: View {
                     .font(.caption)
                     .foregroundStyle(AppTheme.mutedInk)
             }
+
+            MarginSnapshotRow(
+                stock: stock,
+                snapshot: store.marginSnapshots[stock.code],
+                isRefreshing: store.isRefreshing
+            )
         }
         .padding(.vertical, 5)
+    }
+}
+
+private struct MarginSnapshotRow: View {
+    var stock: WatchStock
+    var snapshot: MarginSnapshot?
+    var isRefreshing: Bool
+
+    var body: some View {
+        Group {
+            if stock.market == .aShare {
+                if let snapshot {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 7) {
+                            Image(systemName: "chart.line.uptrend.xyaxis")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(snapshot.temperature.tint)
+                            Text("融资融券")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(AppTheme.ink)
+                            Spacer()
+                            Text(snapshot.temperature.title)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(snapshot.temperature.tint)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(snapshot.temperature.tint.opacity(0.12), in: Capsule())
+                        }
+
+                        HStack(spacing: 10) {
+                            MarginMetric(title: "融资余额", value: money(snapshot.financingBalance))
+                            MarginMetric(title: "占流通", value: percent(snapshot.financingBalanceRatio))
+                            MarginMetric(title: "10日净买", value: signedMoney(snapshot.financingNetBuy10D))
+                        }
+
+                        Text("\(snapshot.dateText) · \(snapshot.sourceName)")
+                            .font(.caption2)
+                            .foregroundStyle(AppTheme.mutedInk)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppTheme.paper.opacity(0.72), in: RoundedRectangle(cornerRadius: 8))
+                } else {
+                    HStack(spacing: 8) {
+                        if isRefreshing {
+                            ProgressView()
+                                .controlSize(.mini)
+                        }
+                        Text(isRefreshing ? "正在抓取融资融券" : "暂无融资融券数据")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.mutedInk)
+                        Spacer()
+                    }
+                    .padding(10)
+                    .background(AppTheme.paper.opacity(0.55), in: RoundedRectangle(cornerRadius: 8))
+                }
+            } else {
+                Text("港股暂无 A 股式融资融券口径")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.mutedInk)
+            }
+        }
+    }
+
+    private func money(_ value: Double) -> String {
+        let absolute = abs(value)
+        if absolute >= 100_000_000 {
+            return "\(String(format: "%.2f", absolute / 100_000_000))亿"
+        }
+        if absolute >= 10_000 {
+            return "\(String(format: "%.0f", absolute / 10_000))万"
+        }
+        return "\(String(format: "%.0f", absolute))"
+    }
+
+    private func signedMoney(_ value: Double) -> String {
+        let prefix = value > 0 ? "+" : value < 0 ? "-" : ""
+        return prefix + money(value)
+    }
+
+    private func percent(_ value: Double?) -> String {
+        guard let value else { return "缺失" }
+        return "\(String(format: "%.2f", value))%"
+    }
+}
+
+private struct MarginMetric: View {
+    var title: String
+    var value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(AppTheme.mutedInk)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

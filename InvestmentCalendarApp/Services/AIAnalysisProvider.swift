@@ -184,6 +184,9 @@ enum AIAnalysisProvider {
         let hottestMargin = marginSnapshots.values.sorted { $0.temperatureScore > $1.temperatureScore }.first
         let drivers = ExposureGraphProvider.drivers(for: watchlist, marginSnapshots: marginSnapshots)
         let concentration = ExposureGraphProvider.hiddenConcentration(for: drivers)
+        let briefing = CompassKernelProvider.briefing(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
+        let firstMustDeliver = briefing.signals(in: .mustDeliver).first
+        let firstMajorRelevant = briefing.signals(in: .majorRelevant).first
         let latestReleasedCPI = events
             .filter { $0.category == .cpi && $0.date <= Date() && $0.detail.contains("已公布") }
             .sorted { $0.date > $1.date }
@@ -195,6 +198,10 @@ enum AIAnalysisProvider {
         if let hottestMargin, hottestMargin.temperature == .crowded {
             headline = "\(hottestMargin.name) 两融杠杆温度已到拥挤区，先看融资净买入是否在事件日前继续推高。"
             regime = "杠杆拥挤"
+            intensity = "高"
+        } else if let firstMustDeliver {
+            headline = "\(briefing.regime.title)：\(firstMustDeliver.title) 已进入必达层，先处理它对持仓和驱动节点的传导。"
+            regime = briefing.regime.title
             intensity = "高"
         } else if let concentration {
             headline = "\(concentration.title) 是当前组合里最容易被低估的共同驱动，先看它是否和事件日历同向。"
@@ -219,7 +226,11 @@ enum AIAnalysisProvider {
         }
 
         let nextNode: String
-        if let fomc {
+        if let firstMustDeliver {
+            nextNode = "\(shortDate(firstMustDeliver.date)) \(firstMustDeliver.title)：\(firstMustDeliver.reason)"
+        } else if let firstMajorRelevant {
+            nextNode = "\(shortDate(firstMajorRelevant.date)) \(firstMajorRelevant.title)：\(firstMajorRelevant.reason)"
+        } else if let fomc {
             nextNode = "\(shortDate(fomc.date)) \(fomc.title)：确认利率路径和 SEP，优先级高于普通宏观数据。"
         } else if let firstFocus {
             nextNode = "\(shortDate(firstFocus.date)) \(firstFocus.title)：先看它是否改变持仓假设。"
@@ -233,6 +244,8 @@ enum AIAnalysisProvider {
         let holdingImpact: String
         if let hottestMargin, hottestMargin.temperature != .cool {
             holdingImpact = "\(hottestMargin.name) 当前融资余额占流通市值约 \(formatPercent(hottestMargin.financingBalanceRatio))，近10日融资净买入 \(formatAmount(hottestMargin.financingNetBuy10D))；这是事件前后最需要盯的杠杆变量。"
+        } else if let firstMustDeliver, !firstMustDeliver.holdings.isEmpty {
+            holdingImpact = "必达层已命中 \(firstMustDeliver.holdings.map(\.name).joined(separator: "、"))；先看事件是否改变原假设，而不是只看价格反应。"
         } else if let concentration {
             holdingImpact = "\(concentration.detail) 符号翻转边只保留解释，不计入集中度。"
         } else if hasResources && hasDuration {
@@ -313,11 +326,23 @@ enum AIAnalysisProvider {
                 return "- \(driver.title)：\(driver.subtitle)。\(edges)。AI备注：\(driver.aiNote)"
             }
             .joined(separator: "\n")
+        let briefing = CompassKernelProvider.briefing(events: events, watchlist: watchlist, marginSnapshots: marginSnapshots)
+        let signalLines = briefing.actionableSignals.prefix(10).map { signal in
+            "- [\(signal.tier.shortTitle)/\(Int(signal.score))] \(DateKeys.day.string(from: signal.date)) \(signal.title)：\(signal.reason)"
+        }.joined(separator: "\n")
 
         return """
         你是一个只服务个人投资日历的投研 AI。请根据已抓取事件做简洁研判，不要编造没有提供的数据或日期。
 
         当前日期：\(DateKeys.day.string(from: Date()))
+
+        罗盘状态：
+        - regime：\(briefing.regime.title)
+        - thesis：\(briefing.regime.thesis)
+        - next：\(briefing.regime.nextNode)
+
+        罗盘分层信号：
+        \(signalLines.isEmpty ? "- 暂无必达/重大/关注层信号。" : signalLines)
 
         自选股：
         \(stockLines.isEmpty ? "- 暂无" : stockLines)

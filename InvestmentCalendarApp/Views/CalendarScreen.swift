@@ -3,7 +3,7 @@ import SwiftUI
 struct CalendarScreen: View {
     @EnvironmentObject private var store: InvestmentCalendarStore
     @State private var showingAddStock = false
-    @State private var selectedEvent: CalendarEvent?
+    @State private var selectedSignal: CompassSignal?
 
     var body: some View {
         NavigationStack {
@@ -13,10 +13,9 @@ struct CalendarScreen: View {
                         showingAddStock = true
                     }
                     CalendarGrid()
-                    MajorMattersSection { event in
-                        selectedEvent = event
+                    CompassBriefingSection { signal in
+                        selectedSignal = signal
                     }
-                    LowSignalFoldSection()
                     SourceFootnote()
                 }
                 .padding(.horizontal, 18)
@@ -45,8 +44,8 @@ struct CalendarScreen: View {
             .sheet(isPresented: $showingAddStock) {
                 AddStockView()
             }
-            .sheet(item: $selectedEvent) { event in
-                EventDetailView(event: event)
+            .sheet(item: $selectedSignal) { signal in
+                CompassSignalDetailView(signal: signal)
             }
         }
     }

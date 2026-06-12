@@ -16,6 +16,7 @@ struct CalendarScreen: View {
                     MajorMattersSection { event in
                         selectedEvent = event
                     }
+                    LowSignalFoldSection()
                     SourceFootnote()
                 }
                 .padding(.horizontal, 18)
@@ -73,7 +74,7 @@ struct AIWorkspaceScreen: View {
                     }
                     MarginLeverageCard()
                     AIInsightCard()
-                    ExposureCompassCard()
+                    CompassGraphCard()
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
@@ -979,6 +980,96 @@ private struct MajorMattersSection: View {
     }
 }
 
+private struct LowSignalFoldSection: View {
+    @EnvironmentObject private var store: InvestmentCalendarStore
+    @State private var isExpanded = false
+
+    var body: some View {
+        let events = lowSignalEvents()
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 8) {
+                if events.isEmpty {
+                    Text("当前没有被折叠的低信号事项。")
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.mutedInk)
+                } else {
+                    ForEach(events.prefix(5)) { event in
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle()
+                                .fill(event.category.tint.opacity(0.65))
+                                .frame(width: 6, height: 6)
+                                .padding(.top, 6)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(event.title)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(AppTheme.ink)
+                                    .lineLimit(2)
+                                Text("\(shortDate(event.date)) · \(event.category.title)")
+                                    .font(.caption2)
+                                    .foregroundStyle(AppTheme.mutedInk)
+                            }
+                        }
+                    }
+                    Text("规则：关联度低、普通宏观、担保、关联交易和常规材料只留在日历圆点，不进入重大事项。")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.mutedInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 4)
+                }
+            }
+            .padding(.top, 10)
+        } label: {
+            HStack {
+                Text("已折叠 · 低信号")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                Spacer()
+                Text("\(events.count) 项")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(AppTheme.mutedInk)
+            }
+        }
+        .padding(14)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.line.opacity(0.65), lineWidth: 1))
+        .tint(AppTheme.mutedInk)
+    }
+
+    private func lowSignalEvents() -> [CalendarEvent] {
+        let startDay = DateKeys.calendar.startOfDay(for: Date())
+        let endDay = DateKeys.calendar.date(byAdding: .day, value: 21, to: startDay) ?? startDay
+        return store.events
+            .filter { event in
+                event.date >= startDay
+                    && event.date < endDay
+                    && !isMajorDisplayEvent(event)
+            }
+            .sorted { $0.date < $1.date }
+    }
+
+    private func isMajorDisplayEvent(_ event: CalendarEvent) -> Bool {
+        switch event.category {
+        case .stockCalendar:
+            return true
+        case .announcement:
+            return event.importance == .high
+        case .fomc, .cpi:
+            return true
+        case .usMacro, .chinaMacro:
+            return event.importance == .high
+        }
+    }
+
+    private func shortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = DateKeys.calendar
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.timeZone = DateKeys.calendar.timeZone
+        formatter.dateFormat = "M月d日"
+        return formatter.string(from: date)
+    }
+}
+
 private struct SelectedDateEvents: View {
     @EnvironmentObject private var store: InvestmentCalendarStore
     var onSelect: (CalendarEvent) -> Void
@@ -1121,6 +1212,8 @@ private struct EventDetailView: View {
                     .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 8))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.line.opacity(0.65), lineWidth: 1))
 
+                    EventAIInterpretationCard(event: event)
+
                     VStack(alignment: .leading, spacing: 9) {
                         DetailMetaRow(title: "来源", value: event.sourceName)
                         if let relatedCode = event.relatedCode {
@@ -1165,6 +1258,105 @@ private struct EventDetailView: View {
         formatter.dateFormat = "yyyy年M月d日 EEEE HH:mm"
         return formatter.string(from: date)
     }
+}
+
+private struct EventAIInterpretationCard: View {
+    @EnvironmentObject private var store: InvestmentCalendarStore
+    var event: CalendarEvent
+
+    var body: some View {
+        let interpretation = interpret()
+        VStack(alignment: .leading, spacing: 11) {
+            HStack {
+                Label("AI 事件解读", systemImage: "sparkles")
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.ink)
+                Spacer()
+                Text(interpretation.badge)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(interpretation.tint)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(interpretation.tint.opacity(0.12), in: Capsule())
+            }
+
+            VStack(spacing: 9) {
+                AIInsightLine(symbol: "arrow.triangle.branch", title: "影响路径", text: interpretation.path)
+                AIInsightLine(symbol: "mappin.and.ellipse", title: "下一节点", text: interpretation.nextNode)
+                AIInsightLine(symbol: "line.3.horizontal.decrease.circle", title: "过滤口径", text: interpretation.filter)
+            }
+        }
+        .padding(16)
+        .background(AppTheme.card, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppTheme.amber.opacity(0.30), lineWidth: 1))
+    }
+
+    private func interpret() -> EventInterpretation {
+        let drivers = ExposureGraphProvider.drivers(for: store.watchlist, marginSnapshots: store.marginSnapshots)
+        let relatedDrivers = relatedCodeDrivers(in: drivers)
+        let driverText = relatedDrivers.map(\.title).prefix(3).joined(separator: "、")
+
+        switch event.category {
+        case .cpi:
+            return EventInterpretation(
+                badge: "宏观核心",
+                tint: AppTheme.amber,
+                path: "CPI 先影响实际利率和降息预期，再传导到腾讯、宁德这类久期资产，以及紫金的黄金端。",
+                nextNode: "下一步看 FOMC 和点阵图，单点 CPI 不能直接等同于买卖结论。",
+                filter: "只放大总体、核心和预期差；普通分项不进入重大事项。"
+            )
+        case .fomc:
+            return EventInterpretation(
+                badge: "决定节点",
+                tint: AppTheme.sumiBlue,
+                path: "FOMC 把通胀数据翻译成利率路径，是实际利率节点的核心触发。",
+                nextNode: "看 SEP、点阵图和主席发布会，而不只是利率本身是否变化。",
+                filter: "议息声明、点阵图和发布会进入主线，普通官员讲话降低权重。"
+            )
+        case .announcement, .stockCalendar:
+            return EventInterpretation(
+                badge: "持仓相关",
+                tint: AppTheme.matcha,
+                path: driverText.isEmpty ? "先看公告是否改变业绩、合同、分红或停复牌假设。" : "这条事件会叠加到 \(driverText) 节点上看，不只看公司标题。",
+                nextNode: nextDisclosureText(),
+                filter: "重大合同、定期报告、业绩、分红、重组、停复牌保留；担保和关联交易默认折叠。"
+            )
+        case .usMacro, .chinaMacro:
+            return EventInterpretation(
+                badge: "宏观变量",
+                tint: event.category.tint,
+                path: "宏观数据只有影响自选股共同驱动节点时才提高优先级。",
+                nextNode: "看它是否改变利率、商品价格、需求预期或产业链价格。",
+                filter: "高优先级宏观保留，低相关宏观只作为日历圆点。"
+            )
+        }
+    }
+
+    private func relatedCodeDrivers(in drivers: [ExposureDriver]) -> [ExposureDriver] {
+        guard let relatedCode = event.relatedCode else { return [] }
+        return drivers.filter { driver in
+            driver.edges.contains { edge in
+                edge.code == relatedCode || edge.code.hasSuffix(relatedCode) || relatedCode.hasSuffix(edge.code)
+            }
+        }
+    }
+
+    private func nextDisclosureText() -> String {
+        guard let relatedCode = event.relatedCode,
+              let stock = store.watchlist.first(where: { $0.code == relatedCode || $0.displayCode == relatedCode }),
+              let next = store.nextEvent(for: stock) else {
+            return "下一步验证公告内容是否能进入业绩、现金流或估值假设。"
+        }
+        return "\(DateKeys.displayDay.string(from: next.date)) \(next.title)。"
+    }
+}
+
+private struct EventInterpretation {
+    var badge: String
+    var tint: Color
+    var path: String
+    var nextNode: String
+    var filter: String
 }
 
 private struct DetailMetaRow: View {

@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		0C0DC98B4C18487553E2FF3F /* CalendarScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 908A09F8175E5018C00C2E68 /* CalendarScreen.swift */; };
 		111138170BDFC50210C7540B /* InvestmentCalendarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CCD21D0725672BDEF164A1 /* InvestmentCalendarApp.swift */; };
+		1F0CAD6D78478683347BAE4D /* CompassGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69C6B4C3B1BA5A8385D1EAC8 /* CompassGraphView.swift */; };
+		2EB65C6FBD955D2ACCFD78BF /* ExposureGraphProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7677B08AFC867C149A7543 /* ExposureGraphProvider.swift */; };
 		3672C29DE8E384191E4F048D /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC0846EDD0A32565A0655583 /* Theme.swift */; };
 		3E9D1273B509B356F2F537FF /* AnnouncementProviders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 325F80C67BCFDEB45E9061B8 /* AnnouncementProviders.swift */; };
 		6BC5CD3AA5A67A2F1A12C93D /* StockDataProviders.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F40DBD1A340C6F6139D351 /* StockDataProviders.swift */; };
@@ -17,6 +19,7 @@
 		90F3E6C9BBB34B1CD83ECA5E /* WebClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DFC7CD9BC27A1D0BE5CB54D /* WebClient.swift */; };
 		92671C5C2E221F4C41579895 /* AIProviderSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BAA89C92C6FA9AC7DFA734 /* AIProviderSettingsView.swift */; };
 		A6B93732D303A2CD3C4BE940 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC6333B84D88DEC521FBB80 /* ContentView.swift */; };
+		AF6F40B5BDAC410D807B826A /* ExposureModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1B4971BFCA5E86F051CEDE7 /* ExposureModels.swift */; };
 		B141A90468A9B6D7BCFCD7A8 /* SourcesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 803F5747A3E257EDF3B96B74 /* SourcesView.swift */; };
 		B971FF4A7B4F9AD7C8E3DBC4 /* CalendarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C13545AAE69172DFBCF04E0 /* CalendarModels.swift */; };
 		C1047804C5B323F674C4DC42 /* InvestmentCalendarStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B8B679A1D0EF8974C169CA /* InvestmentCalendarStore.swift */; };
@@ -32,6 +35,7 @@
 		3DFC7CD9BC27A1D0BE5CB54D /* WebClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebClient.swift; sourceTree = "<group>"; };
 		51B8B679A1D0EF8974C169CA /* InvestmentCalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvestmentCalendarStore.swift; sourceTree = "<group>"; };
 		5514D26E017DA7E7022292BC /* WatchlistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchlistView.swift; sourceTree = "<group>"; };
+		69C6B4C3B1BA5A8385D1EAC8 /* CompassGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompassGraphView.swift; sourceTree = "<group>"; };
 		7079180685F295360E06D369 /* InvestmentCalendar.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = InvestmentCalendar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		803F5747A3E257EDF3B96B74 /* SourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourcesView.swift; sourceTree = "<group>"; };
 		85143555B846EA042BCD811D /* MacroCalendarProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacroCalendarProvider.swift; sourceTree = "<group>"; };
@@ -39,8 +43,10 @@
 		908A09F8175E5018C00C2E68 /* CalendarScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarScreen.swift; sourceTree = "<group>"; };
 		96BAA89C92C6FA9AC7DFA734 /* AIProviderSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIProviderSettingsView.swift; sourceTree = "<group>"; };
 		C831447A4626CC2EA3281E9D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		CE7677B08AFC867C149A7543 /* ExposureGraphProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExposureGraphProvider.swift; sourceTree = "<group>"; };
 		D3B6B8432D8DCD366A7F948A /* MarginTradingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarginTradingProvider.swift; sourceTree = "<group>"; };
 		D4F40DBD1A340C6F6139D351 /* StockDataProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockDataProviders.swift; sourceTree = "<group>"; };
+		E1B4971BFCA5E86F051CEDE7 /* ExposureModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExposureModels.swift; sourceTree = "<group>"; };
 		EDC6333B84D88DEC521FBB80 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		FA29A3D136984ACF33EE67F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FC0846EDD0A32565A0655583 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -52,6 +58,7 @@
 			children = (
 				8A6512F0F80451F99C730ED0 /* AIAnalysisProvider.swift */,
 				325F80C67BCFDEB45E9061B8 /* AnnouncementProviders.swift */,
+				CE7677B08AFC867C149A7543 /* ExposureGraphProvider.swift */,
 				51B8B679A1D0EF8974C169CA /* InvestmentCalendarStore.swift */,
 				85143555B846EA042BCD811D /* MacroCalendarProvider.swift */,
 				D3B6B8432D8DCD366A7F948A /* MarginTradingProvider.swift */,
@@ -90,6 +97,7 @@
 			children = (
 				96BAA89C92C6FA9AC7DFA734 /* AIProviderSettingsView.swift */,
 				908A09F8175E5018C00C2E68 /* CalendarScreen.swift */,
+				69C6B4C3B1BA5A8385D1EAC8 /* CompassGraphView.swift */,
 				EDC6333B84D88DEC521FBB80 /* ContentView.swift */,
 				803F5747A3E257EDF3B96B74 /* SourcesView.swift */,
 				FC0846EDD0A32565A0655583 /* Theme.swift */,
@@ -115,6 +123,7 @@
 			isa = PBXGroup;
 			children = (
 				1C13545AAE69172DFBCF04E0 /* CalendarModels.swift */,
+				E1B4971BFCA5E86F051CEDE7 /* ExposureModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -191,7 +200,10 @@
 				3E9D1273B509B356F2F537FF /* AnnouncementProviders.swift in Sources */,
 				B971FF4A7B4F9AD7C8E3DBC4 /* CalendarModels.swift in Sources */,
 				0C0DC98B4C18487553E2FF3F /* CalendarScreen.swift in Sources */,
+				1F0CAD6D78478683347BAE4D /* CompassGraphView.swift in Sources */,
 				A6B93732D303A2CD3C4BE940 /* ContentView.swift in Sources */,
+				2EB65C6FBD955D2ACCFD78BF /* ExposureGraphProvider.swift in Sources */,
+				AF6F40B5BDAC410D807B826A /* ExposureModels.swift in Sources */,
 				111138170BDFC50210C7540B /* InvestmentCalendarApp.swift in Sources */,
 				C1047804C5B323F674C4DC42 /* InvestmentCalendarStore.swift in Sources */,
 				8B256DFD1D21C9E1DD641FCC /* MacroCalendarProvider.swift in Sources */,

@@ -182,6 +182,8 @@ enum AIAnalysisProvider {
         let fomc = focus.first { $0.category == .fomc }
         let firstFocus = focus.first
         let hottestMargin = marginSnapshots.values.sorted { $0.temperatureScore > $1.temperatureScore }.first
+        let drivers = ExposureGraphProvider.drivers(for: watchlist, marginSnapshots: marginSnapshots)
+        let concentration = ExposureGraphProvider.hiddenConcentration(for: drivers)
         let latestReleasedCPI = events
             .filter { $0.category == .cpi && $0.date <= Date() && $0.detail.contains("已公布") }
             .sorted { $0.date > $1.date }
@@ -194,6 +196,10 @@ enum AIAnalysisProvider {
             headline = "\(hottestMargin.name) 两融杠杆温度已到拥挤区，先看融资净买入是否在事件日前继续推高。"
             regime = "杠杆拥挤"
             intensity = "高"
+        } else if let concentration {
+            headline = "\(concentration.title) 是当前组合里最容易被低估的共同驱动，先看它是否和事件日历同向。"
+            regime = "隐蔽集中"
+            intensity = "中高"
         } else if let stockEvent {
             headline = "先处理真正改变预期的公告，再看宏观节点。重点是重大合同、定期报告、业绩、分红、重组和停复牌。"
             regime = "公告优先"
@@ -227,6 +233,8 @@ enum AIAnalysisProvider {
         let holdingImpact: String
         if let hottestMargin, hottestMargin.temperature != .cool {
             holdingImpact = "\(hottestMargin.name) 当前融资余额占流通市值约 \(formatPercent(hottestMargin.financingBalanceRatio))，近10日融资净买入 \(formatAmount(hottestMargin.financingNetBuy10D))；这是事件前后最需要盯的杠杆变量。"
+        } else if let concentration {
+            holdingImpact = "\(concentration.detail) 符号翻转边只保留解释，不计入集中度。"
         } else if hasResources && hasDuration {
             holdingImpact = "资源股和久期资产看似分散，但都可能受实际利率节点影响；这是罗盘里的隐藏集中度逻辑。"
         } else if hasResources {
@@ -299,6 +307,12 @@ enum AIAnalysisProvider {
             guard let snapshot = marginSnapshots[stock.code] else { return nil }
             return "- \(stock.name) \(snapshot.dateText)：两融温度 \(snapshot.temperature.title)，融资余额 \(formatAmount(snapshot.financingBalance))，融资余额占流通市值 \(formatPercent(snapshot.financingBalanceRatio))，近10日融资净买入 \(formatAmount(snapshot.financingNetBuy10D))"
         }.joined(separator: "\n")
+        let driverLines = ExposureGraphProvider.drivers(for: watchlist, marginSnapshots: marginSnapshots)
+            .map { driver in
+                let edges = driver.edges.map { "\($0.stockName) \($0.kind.title) ρ/\($0.rhoText) 稳定性 \(String(format: "%.2f", $0.stability))" }.joined(separator: "；")
+                return "- \(driver.title)：\(driver.subtitle)。\(edges)。AI备注：\(driver.aiNote)"
+            }
+            .joined(separator: "\n")
 
         return """
         你是一个只服务个人投资日历的投研 AI。请根据已抓取事件做简洁研判，不要编造没有提供的数据或日期。
@@ -314,13 +328,17 @@ enum AIAnalysisProvider {
         A股融资融券：
         \(marginLines.isEmpty ? "- 暂无可用两融数据；港股不要套用A股两融口径。" : marginLines)
 
+        罗盘联动图谱：
+        \(driverLines.isEmpty ? "- 暂无图谱节点。" : driverLines)
+
         规则：
         1. 重点看重大合同、中标订单、定期报告、业绩预告/快报、分红、重组、停复牌、CPI、FOMC 和高优先级宏观数据。
         2. 担保、关联交易、普通会议材料、月报表等低信号公告不要放大。
         3. 融资融券是资金拥挤核心信号；事件日前融资净买入快速增加、融资余额占流通市值升高、股价滞涨但融资增加，都要提示。
-        4. 输出必须是 JSON，不要 Markdown，不要解释。
-        5. 字段必须包含 headline, badge, regime, intensity, nextNode, holdingImpact, filterRule, mapSummary, risks。
-        6. risks 是 0 到 3 条中文字符串数组。
+        4. STABLE+/STABLE-/LEVERAGE 可以计入隐藏集中度；UNSTABLE 只能解释，不能当作确定结论。
+        5. 输出必须是 JSON，不要 Markdown，不要解释。
+        6. 字段必须包含 headline, badge, regime, intensity, nextNode, holdingImpact, filterRule, mapSummary, risks。
+        7. risks 是 0 到 3 条中文字符串数组。
         """
     }
 
@@ -443,6 +461,11 @@ enum AIAnalysisProvider {
     }
 
     private static func mapSummary(for watchlist: [WatchStock], marginSnapshots: [String: MarginSnapshot]) -> String {
+        let drivers = ExposureGraphProvider.drivers(for: watchlist, marginSnapshots: marginSnapshots)
+        if let concentration = ExposureGraphProvider.hiddenConcentration(for: drivers) {
+            return "\(concentration.detail) 当前图谱只把 STABLE+/STABLE-/LEVERAGE 计入集中度，UNSTABLE 边不做方向结论。"
+        }
+
         if let hottest = marginSnapshots.values.sorted(by: { $0.temperatureScore > $1.temperatureScore }).first,
            hottest.temperature != .cool {
             return "\(hottest.name) 的两融温度最高，融资余额占流通市值约 \(formatPercent(hottest.financingBalanceRatio))，近10日融资净买入 \(formatAmount(hottest.financingNetBuy10D))；联动图谱会把它放在公告和宏观节点前一起看。"
@@ -460,6 +483,10 @@ enum AIAnalysisProvider {
 
     private static func riskNotes(for focus: [CalendarEvent], watchlist: [WatchStock], marginSnapshots: [String: MarginSnapshot]) -> [String] {
         var notes: [String] = []
+        let drivers = ExposureGraphProvider.drivers(for: watchlist, marginSnapshots: marginSnapshots)
+        if let concentration = ExposureGraphProvider.hiddenConcentration(for: drivers) {
+            notes.append("\(concentration.title) 已形成共同驱动，分散持仓不等于分散风险。")
+        }
         if let hottest = marginSnapshots.values.sorted(by: { $0.temperatureScore > $1.temperatureScore }).first,
            hottest.temperature != .cool {
             notes.append("\(hottest.name) 杠杆温度\(hottest.temperature.title)，近10日融资净买入 \(formatAmount(hottest.financingNetBuy10D))，事件日前后要防融资推动后的反向波动。")
